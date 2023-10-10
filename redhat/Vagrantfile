@@ -1,0 +1,46 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  # a redhat linux 9 boxes at https://vagrantcloud.com/search.
+  config.vm.box = "generic/rhel9"
+  nums_vms = 3
+
+  (1..nums_vms).each do |i|
+    config.vm.define "node#{i}" do |node|
+      # set base image
+      node.vm.box = "generic/rhel9"
+      node.vm.hostname = "node#{i}"
+      node.vm.network "private_network", type: "dhcp"
+      # before destroying the vm, unregister with subscription-manager
+      node.trigger.before :destroy do |trigger|
+        trigger.warn = "Unregistering with redhat subscription-manager"
+        trigger.run_remote = {inline: "sudo subscription-manager unregister"}
+      end
+      # expects RH_NAME and RH_PW to be defined in your environment
+      node.vm.provision "shell", inline: <<-SHELL
+            sudo subscription-manager register --username \
+              #{ENV['RH_NAME']} --password \
+              #{ENV['RH_PW']} --auto-attach 
+            sudo dnf update -y && sudo dnf upgrade -y
+            SHELL
+    end
+  end
+
+  # Create a private network, which allows host-only access to the machine
+  # using a specific IP.
+  # config.vm.network "private_network", ip: "192.168.33.10"
+
+  # Create a public network, which generally matched to bridged network.
+  # Bridged networks make the machine appear as another physical device on
+  # your network.
+  # config.vm.network "public_network"
+
+  # Share an additional folder to the guest VM. The first argument is
+  # the path on the host to the actual folder. The second argument is
+  # the path on the guest to mount the folder. And the optional third
+  # argument is a set of non-required options.
+  # config.vm.synced_folder "../data", "/vagrant_data"
+
+
+end
